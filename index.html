@@ -172,7 +172,8 @@ function getTotalScore(c) {
 // ========== 星ボタン ==========
 function makeStars(val, fnName, small) {
   var cls = small ? "sts sm" : "sts";
-  var h = '<div class="' + cls + '">';
+  var id = fnName.replace(/[()]/g, "");
+  var h = '<div class="' + cls + '" id="stars_' + id + '">';
   for (var v = 1; v <= 5; v++) {
     var on = val >= v ? " on" : "";
     h += '<span class="st' + on + '" onclick="' + fnName + '(' + v + ')">★</span>';
@@ -194,7 +195,7 @@ function makeStepper(active) {
 
 // ========== レーダーチャート ==========
 function makeRadar(cos) {
-  var cx = 130, cy = 130, r = 90, lr = 113;
+  var cx = 150, cy = 140, r = 85, lr = 108;
 
   function pt(v, i) {
     var rv = (v / 5) * r;
@@ -219,7 +220,7 @@ function makeRadar(cos) {
   for (var i = 0; i < AX.length; i++) {
     var lx = cx + lr * Math.cos(RANG[i]);
     var ly = cy + lr * Math.sin(RANG[i]);
-    g += '<text x="' + lx + '" y="' + (ly+5) + '" text-anchor="' + anc[i] + '" font-size="11" fill="var(--ink2)" font-weight="700">' + AX[i].ic + AX[i].l + '</text>';
+    g += '<text x="' + lx + '" y="' + (ly+5) + '" text-anchor="' + anc[i] + '" font-size="10" fill="var(--ink2)" font-weight="700">' + AX[i].l + '</text>';
   }
 
   for (var ci = 0; ci < cos.length; ci++) {
@@ -234,11 +235,26 @@ function makeRadar(cos) {
 
   var leg = "";
   for (var i = 0; i < cos.length; i++) {
-    leg += '<rect x="' + (8+i*110) + '" y="248" width="10" height="10" rx="3" fill="' + COL[i] + '"/>';
-    leg += '<text x="' + (22+i*110) + '" y="258" font-size="11" fill="var(--ink2)" font-weight="700">' + cos[i].name + '</text>';
+    leg += '<rect x="' + (8+i*110) + '" y="268" width="10" height="10" rx="3" fill="' + COL[i] + '"/>';
+    leg += '<text x="' + (22+i*110) + '" y="278" font-size="11" fill="var(--ink2)" font-weight="700">' + cos[i].name + '</text>';
   }
 
-  return '<div class="card" style="padding:14px 8px 10px"><svg width="100%" viewBox="0 0 260 270">' + g + leg + '</svg></div>';
+  return '<div class="card" style="padding:14px 8px 10px"><svg width="100%" viewBox="0 0 300 290">' + g + leg + '</svg></div>';
+}
+
+
+// 星を即時更新（再描画なし）
+function updateStars(id, val) {
+  var el = document.getElementById("stars_" + id);
+  if (!el) return;
+  var spans = el.querySelectorAll(".st");
+  for (var i = 0; i < spans.length; i++) {
+    if (i < val) {
+      spans[i].className = "st on";
+    } else {
+      spans[i].className = "st";
+    }
+  }
 }
 
 // ========== メインレンダラー ==========
@@ -304,6 +320,7 @@ function onCoInput(idx, val) {
   refreshGW();
   var btn = document.getElementById("btnNext0");
   if (btn) btn.disabled = !(getActive().length > 0 && S.gut !== "");
+  schedFetch(idx);
 }
 
 function refreshGW() {
@@ -336,6 +353,9 @@ function goStep1() {
   S.co[0] = named[0] || {name:"",ax:{},px:{},memo:"",data:null,loading:false,err:false};
   S.co[1] = named[1] || {name:"",ax:{},px:{},memo:"",data:null,loading:false,err:false};
   S.co[2] = named[2] || {name:"",ax:{},px:{},memo:"",data:null,loading:false,err:false};
+  for (var i = 0; i < named.length; i++) {
+    if (!S.co[i].data && !S.co[i].loading) doFetchCo(i);
+  }
   S.step = 1;
   render();
 }
@@ -444,6 +464,7 @@ function renderS2() {
   html += makeStepper(2);
   html += '<div class="sec">';
   html += '<div class="tabs">' + tabsHTML + '</div>';
+  html += '<div class="card mi"><div class="clbl">📊 企業情報（web検索済み）</div>' + makeDataCard(c) + '</div>';
   html += axCardsHTML;
   html += '<div class="card ye"><div style="font-size:13px;font-weight:800;margin-bottom:4px">👨‍👩‍👧 親フィルター（任意）</div>';
   html += '<div style="font-size:12px;color:var(--ink2);font-weight:600;margin-bottom:14px">「親ならどう評価する？」後でズレを確認するよ。</div>';
@@ -466,14 +487,31 @@ function renderS2() {
     (function(aKey) {
       window["setAx_" + aKey + "_1"] = function(val) {
         S.co[S.ci].ax[aKey+"1"] = val;
-        renderS2();
+        updateStars("ax_" + aKey + "_1", val);
+        var b = document.getElementById("btnNext2");
+        if (b) {
+          var ok = true;
+          for (var j = 0; j < AX.length; j++) {
+            if (!S.co[S.ci].ax[AX[j].k+"1"] || !S.co[S.ci].ax[AX[j].k+"2"]) { ok = false; break; }
+          }
+          b.disabled = !ok;
+        }
       };
       window["setAx_" + aKey + "_2"] = function(val) {
         S.co[S.ci].ax[aKey+"2"] = val;
-        renderS2();
+        updateStars("ax_" + aKey + "_2", val);
+        var b = document.getElementById("btnNext2");
+        if (b) {
+          var ok = true;
+          for (var j = 0; j < AX.length; j++) {
+            if (!S.co[S.ci].ax[AX[j].k+"1"] || !S.co[S.ci].ax[AX[j].k+"2"]) { ok = false; break; }
+          }
+          b.disabled = !ok;
+        }
       };
       window["setPx_" + aKey] = function(val) {
         S.co[S.ci].px[aKey] = val;
+        updateStars("setPx_" + aKey, val);
       };
     })(AX[i].k);
   }
@@ -567,6 +605,127 @@ function renderS4() {
   document.getElementById("app").innerHTML = html;
 }
 
+
+// ========== 企業データ取得 ==========
+var fetchTimers = {};
+
+function schedFetch(idx) {
+  clearTimeout(fetchTimers[idx]);
+  if (S.co[idx].name.trim().length < 2) return;
+  fetchTimers[idx] = setTimeout(function(){ doFetchCo(idx); }, 1200);
+}
+
+async function doFetchCo(idx) {
+  var name = S.co[idx].name.trim();
+  if (!name) return;
+  S.co[idx].loading = true;
+  S.co[idx].data = null;
+  S.co[idx].err = false;
+  if (S.step === 2) renderS2();
+
+  var p = "あなたは就活支援の専門家です。以下の企業について複数の信頼できる情報源（企業公式サイト・日本経済新聞・Bloomberg・IR情報・OpenWork・Vorkers・就活会議など）をweb検索で調査し、以下のJSON形式のみで返してください。説明文・コードブロック不要。\n企業名：" + name + "\n{"
+    + "\"avg_salary\": 平均年収万円(数値/不明はnull),"
+    + "\"avg_overtime\": 月平均残業h(数値/不明はnull),"
+    + "\"turnover_rate\": 離職率%(数値/不明はnull),"
+    + "\"employees\": 従業員数人(数値/不明はnull),"
+    + "\"strengths_summary\": \"強みの概要50字以内\"," 
+    + "\"strengths_detail\": \"具体的な強み・競争優位性・事例やデータ200字以内\"," 
+    + "\"strengths_source\": \"情報源（公式IR・日経・Bloomberg等）\"," 
+    + "\"weaknesses_summary\": \"課題・弱みの概要50字以内\"," 
+    + "\"weaknesses_detail\": \"具体的な課題・口コミ情報も含む200字以内\"," 
+    + "\"weaknesses_source\": \"情報源（OpenWork・就活会議等）\"," 
+    + "\"jobseeker_summary\": \"就職前に知るべき重要情報の概要50字以内\"," 
+    + "\"jobseeker_detail\": \"企業文化・将来性・最近の動向・口コミ200字以内\"," 
+    + "\"jobseeker_source\": \"情報源\"," 
+    + "\"axis_match\": {\"future\":1-5整数,\"comfy\":1-5整数,\"apt\":1-5整数,\"skill\":1-5整数,\"gut\":1-5整数},"
+    + "\"axis_match_reason\": \"各軸マッチ度の根拠100字以内\"" 
+    + "}\nJSONのみ。口コミは個人の主観的意見である旨を含める。矛盾情報は信頼性高い方を優先。";
+
+  try {
+    var r = await fetch("/.netlify/functions/claude-proxy", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 2000,
+        tools: [{type: "web_search_20250305", name: "web_search"}],
+        messages: [{role: "user", content: p}]
+      })
+    });
+    var d = await r.json();
+    var txt = (d.content || []).filter(function(b){ return b.type === "text"; }).map(function(b){ return b.text; }).join("") || "";
+    S.co[idx].data = JSON.parse(txt.replace(/```json|```/g, "").trim());
+  } catch(e) {
+    S.co[idx].err = true;
+  }
+  S.co[idx].loading = false;
+  if (S.step === 2) renderS2();
+}
+
+function makeDataCard(c) {
+  if (c.loading) {
+    return '<div style="text-align:center;padding:14px 0">'
+      + '<span class="spin"></span>'
+      + '<div style="font-size:13px;color:var(--ink2);font-weight:600;margin-top:6px">企業情報をweb検索中...</div>'
+      + '<div style="font-size:11px;color:var(--ink3);margin-top:3px">公式サイト・IR・口コミを照合しています</div>'
+      + '</div>';
+  }
+  if (!c.data || c.err) {
+    return '<div style="font-size:12px;color:var(--ink2);padding:4px 0;font-weight:600">データが取得できなかったよ。</div>';
+  }
+  var d = c.data;
+  function fmt(v, u) { return v != null ? v + u : "—"; }
+
+  var basicHTML = '<div class="bdg bmi" style="margin-bottom:10px">✓ 複数情報源から取得済み</div>'
+    + '<div class="dgrid" style="margin-bottom:12px">'
+    + '<div class="ditem"><div class="dval">' + fmt(d.avg_salary, "万円") + '</div><div class="dlbl">💰 平均年収</div></div>'
+    + '<div class="ditem"><div class="dval">' + fmt(d.avg_overtime, "h/月") + '</div><div class="dlbl">⏰ 平均残業</div></div>'
+    + '<div class="ditem"><div class="dval">' + fmt(d.turnover_rate, "%") + '</div><div class="dlbl">🚪 離職率</div></div>'
+    + '<div class="ditem"><div class="dval">' + (d.employees != null ? Number(d.employees).toLocaleString() + "人" : "—") + '</div><div class="dlbl">👥 従業員数</div></div>'
+    + '</div>';
+
+  var axMatchHTML = "";
+  if (d.axis_match) {
+    var axNames = {future:"🚀未来",comfy:"🏡居心地",apt:"⚡適性",skill:"🔑スキル",gut:"🫀本音"};
+    var axKeys = ["future","comfy","apt","skill","gut"];
+    axMatchHTML = '<div style="margin-bottom:12px;padding:10px 12px;background:#F0FFF8;border-radius:12px;border:1.5px solid var(--mi)">'
+      + '<div style="font-size:11px;font-weight:800;color:var(--md);letter-spacing:.06em;margin-bottom:8px">📊 あなたの優先軸とのマッチ度</div>'
+      + '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center">';
+    for (var j = 0; j < axKeys.length; j++) {
+      var k = axKeys[j];
+      var v = (d.axis_match && d.axis_match[k]) ? d.axis_match[k] : 0;
+      var isPri = S.pri.indexOf(k) > -1;
+      var color = v >= 4 ? "#4ECBA8" : v >= 3 ? "#FFD93D" : "#FF6B4A";
+      var stars = "";
+      for (var s = 1; s <= 5; s++) stars += '<span style="color:' + (s <= v ? color : "#ddd") + ';font-size:14px">★</span>';
+      axMatchHTML += '<div style="font-size:12px;font-weight:' + (isPri ? "800" : "600") + ';color:' + (isPri ? "var(--co)" : "var(--ink2)") + '">' + axNames[k] + (isPri ? ' <span style="font-size:10px">(優先)</span>' : "") + '</div>';
+      axMatchHTML += '<div>' + stars + '</div>';
+    }
+    axMatchHTML += '</div>';
+    if (d.axis_match_reason) {
+      axMatchHTML += '<div style="font-size:11px;color:var(--ink2);margin-top:8px;line-height:1.65;border-top:1px solid var(--mi);padding-top:6px">' + d.axis_match_reason + '</div>';
+    }
+    axMatchHTML += '</div>';
+  }
+
+  function infoBlock(emoji, title, summary, detail, source) {
+    if (!summary && !detail) return "";
+    return '<div style="margin-bottom:10px;padding:10px 12px;background:var(--cr);border-radius:12px;border:1.5px solid var(--ink3)">'
+      + '<div style="font-size:11px;font-weight:800;color:var(--ink2);margin-bottom:5px">' + emoji + " " + title + '</div>'
+      + (summary ? '<div style="font-size:13px;font-weight:700;color:var(--ink);margin-bottom:5px">' + summary + '</div>' : "")
+      + (detail ? '<div style="font-size:12px;color:var(--ink2);line-height:1.7;margin-bottom:5px">' + detail + '</div>' : "")
+      + (source ? '<div style="font-size:10px;color:var(--ink3);font-weight:600">出典：' + source + '</div>' : "")
+      + '</div>';
+  }
+
+  return basicHTML
+    + axMatchHTML
+    + infoBlock("💪", "企業の強み", d.strengths_summary, d.strengths_detail, d.strengths_source)
+    + infoBlock("⚠️", "課題・弱み", d.weaknesses_summary, d.weaknesses_detail, d.weaknesses_source)
+    + infoBlock("📌", "就職前に知っておくべきこと", d.jobseeker_summary, d.jobseeker_detail, d.jobseeker_source)
+    + '<div style="font-size:10px;color:var(--ink3);margin-top:4px;line-height:1.5">※口コミは個人の主観的意見です。最新情報は公式サイト等でご確認ください。</div>';
+}
+
 // ========== むぎchanコメント ==========
 async function fetchMugi() {
   S.ml = true;
@@ -603,7 +762,7 @@ async function fetchMugi() {
     var d = await r.json();
     S.mc = (d.content && d.content[0] && d.content[0].text) ? d.content[0].text : "ごめんね、取得できなかったよ。";
   } catch(e) {
-    S.mc = "Netlifyにデプロイすると使えるよ！";
+    S.mc = "エラー: " + e.message;
   }
   S.ml = false;
   render();
